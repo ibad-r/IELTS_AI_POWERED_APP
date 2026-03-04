@@ -23,8 +23,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ielts.ai.app.ielts_app"
-        minSdk = maxOf(flutter.minSdkVersion, 21)  // ✅ ensures at least 21
+        applicationId = "com.devinspect.scire"
+        minSdk = maxOf(flutter.minSdkVersion, 21)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "926469953053",
+    "project_id": "ielts-app-50727",
+    "storage_bucket": "ielts-app-50727.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:926469953053:android:e6a9257a1a408e1f1f18f4",
+        "android_client_info": {
+          "package_name": "com.devinspect.scire"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "926469953053-fr240374ur9l8dk3o5jj9fneekmfg9sv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJuvy26MFfVTxjzRvRJyIkI_GQ4QRP1kU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "926469953053-fr240374ur9l8dk3o5jj9fneekmfg9sv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "926469953053-1eobsjm0odjl88rm9q9hfqni3josfsd9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.ielts.ai.app.ieltsApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -26,6 +26,7 @@ class _AuthScreenState extends State<AuthScreen>
   bool _resetLoading = false;
   String? _emailError;
   String? _passError;
+  String? _googleHint; // shows when user tries email but signed up with Google
 
   late AnimationController _entranceCtrl;
   late Animation<double> _fadeIn;
@@ -88,16 +89,25 @@ class _AuthScreenState extends State<AuthScreen>
     });
 
     try {
-      // ✅ Ask Firebase Auth directly — 100% reliable
       final status = await _auth.checkEmail(email);
 
-      await _stepCtrl.reverse();
-      setState(() {
-        _step = 1;
-        _isNewUser = status == EmailStatus.newUser;
-        _passError = null;
-      });
-      await _stepCtrl.forward();
+      if (status == EmailStatus.existingGoogle) {
+        // ✅ Google user — go back to email step and highlight Google button
+        setState(() {
+          _googleHint = 'This email is registered with Google.\nPlease use the button below to sign in.';
+          _emailError = null;
+        });
+      } else {
+        // Email user or new user — go to password step
+        await _stepCtrl.reverse();
+        setState(() {
+          _step = 1;
+          _isNewUser = status == EmailStatus.newUser;
+          _passError = null;
+          _googleHint = null;
+        });
+        await _stepCtrl.forward();
+      }
     } on AuthException catch (e) {
       setState(() => _emailError = e.message);
     } catch (_) {
@@ -204,6 +214,7 @@ class _AuthScreenState extends State<AuthScreen>
       _passCtrl.clear();
       _nameCtrl.clear();
       _passError = null;
+      _googleHint = null;
     });
     await _stepCtrl.forward();
   }
@@ -319,7 +330,9 @@ class _AuthScreenState extends State<AuthScreen>
           keyboardType: TextInputType.emailAddress,
           error: _emailError,
           onChanged: (_) {
-            if (_emailError != null) setState(() => _emailError = null);
+            if (_emailError != null || _googleHint != null) {
+              setState(() { _emailError = null; _googleHint = null; });
+            }
           },
         ),
         const SizedBox(height: 10),
@@ -336,13 +349,47 @@ class _AuthScreenState extends State<AuthScreen>
         _OrDivider(),
         const SizedBox(height: 20),
 
+        // Google hint — shown when user tries email but signed up with Google
+        if (_googleHint != null) ...[
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A2A3A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    color: Colors.blue, size: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _googleHint!,
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         _ActionButton(
           onTap: _handleGoogle,
           isLoading: _googleLoading,
           label: 'Continue with Google',
-          bgColor: AppDark.surface2,
+          bgColor: _googleHint != null
+              ? Colors.blue.withOpacity(0.15)
+              : AppDark.surface2,
           textColor: Colors.white,
-          borderColor: AppDark.border,
+          borderColor: _googleHint != null
+              ? Colors.blue.withOpacity(0.6)
+              : AppDark.border,
           icon: _GoogleLogo(),
         ),
         const SizedBox(height: 10),

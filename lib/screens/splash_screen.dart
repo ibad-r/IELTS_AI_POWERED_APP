@@ -126,7 +126,7 @@ class _SplashScreenState extends State<SplashScreen>
                               ],
                             ),
                             child: const Center(
-                              child: Text('IE',
+                              child: Text('SCIRE',
                                   style: TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w900,

@@ -1,3 +1,4 @@
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -9,40 +10,46 @@ class AuthException implements Exception {
   AuthException(this.message);
 }
 
-// Tells us if an email belongs to a new or existing user
-enum EmailStatus { newUser, existingUser }
+// 3 possible states for an email — professional level detection
+enum EmailStatus {
+  newUser,        // never signed up before
+  existingEmail,  // signed up with email + password
+  existingGoogle, // signed up with Google Sign-In
+}
 
 class AuthService {
-  // Firebase instances — created once, reused everywhere
   final FirebaseAuth      _auth   = FirebaseAuth.instance;
   final FirebaseFirestore _db     = FirebaseFirestore.instance;
   final GoogleSignIn      _google = GoogleSignIn();
 
-  // Stream that app listens to — fires whenever login state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  // Currently logged in Firebase user (null if not logged in)
   User? get currentUser => _auth.currentUser;
 
-  // ── Check if email is new or existing user ────────────────────
-  // How it works: tries a fake login — Firebase tells us if user exists
+  // ── Check email status ────────────────────────────────────────
+  // Checks Firestore to determine if email is new, email user, or google user
   Future<EmailStatus> checkEmail(String email) async {
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: '________DUMMY_CHECK________',
-      );
-      return EmailStatus.existingUser;
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        return EmailStatus.newUser;
-      } else if (e.code == 'wrong-password' ||
-          e.code == 'invalid-credential') {
-        return EmailStatus.existingUser;
-      } else if (e.code == 'too-many-requests') {
-        throw AuthException('Too many attempts. Please try again later.');
+      // Check Firestore directly — 100% reliable
+      final doc = await _db
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (doc.docs.isNotEmpty) {
+        // Email found — check which provider they used
+        final provider = doc.docs.first.data()['provider'] ?? 'email';
+
+        if (provider == 'google') {
+          return EmailStatus.existingGoogle; // → show Google button hint
+        }
+        return EmailStatus.existingEmail; // → show password field
       }
-      return EmailStatus.existingUser;
+
+      // Email not in Firestore → new user
+      return EmailStatus.newUser;
+    } on AuthException {
+      rethrow;
     } catch (_) {
       throw AuthException('Could not check email. Please try again.');
     }
@@ -55,17 +62,14 @@ class AuthService {
     required String name,
   }) async {
     try {
-      // 1. Create account in Firebase Auth
       final result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // 2. Set their display name
       await result.user?.updateDisplayName(name);
       await result.user?.reload();
 
-      // 3. Build UserModel
       final userModel = UserModel(
         uid:      result.user!.uid,
         name:     name,
@@ -74,9 +78,7 @@ class AuthService {
         provider: 'email',
       );
 
-      // 4. Save to Firestore
       await _saveUserToFirestore(userModel);
-
       return userModel;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_errorMessage(e.code));
@@ -92,19 +94,16 @@ class AuthService {
     required String password,
   }) async {
     try {
-      // 1. Sign in with Firebase Auth
       final result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // 2. Update last login time in Firestore
       await _db
           .collection('users')
           .doc(result.user?.uid)
           .update({'lastLoginAt': FieldValue.serverTimestamp()});
 
-      // 3. Fetch and return UserModel from Firestore
       final doc = await _db
           .collection('users')
           .doc(result.user?.uid)
@@ -122,21 +121,17 @@ class AuthService {
   // ── Login with Google ─────────────────────────────────────────
   Future<UserModel?> signInWithGoogle() async {
     try {
-      // 1. Open Google account picker
       final googleUser = await _google.signIn();
-      if (googleUser == null) return null; // user cancelled
+      if (googleUser == null) return null;
 
-      // 2. Get Google credentials
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken:     googleAuth.idToken,
       );
 
-      // 3. Sign in to Firebase with Google credentials
       final result = await _auth.signInWithCredential(credential);
 
-      // 4. Build UserModel
       final userModel = UserModel(
         uid:      result.user!.uid,
         name:     result.user?.displayName ?? '',
@@ -145,9 +140,7 @@ class AuthService {
         provider: 'google',
       );
 
-      // 5. Save to Firestore (only on first login)
       await _saveUserToFirestore(userModel);
-
       return userModel;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_errorMessage(e.code));
@@ -168,31 +161,27 @@ class AuthService {
 
   // ── Sign out ──────────────────────────────────────────────────
   Future<void> signOut() async {
-    await _google.signOut(); // clear Google session
-    await _auth.signOut();   // clear Firebase session
+    await _google.signOut();
+    await _auth.signOut();
   }
 
-  // ── Save user to Firestore (private helper) ───────────────────
-  // If user already exists → only update lastLoginAt
-  // If new user → save full profile
+  // ── Save user to Firestore ────────────────────────────────────
   Future<void> _saveUserToFirestore(UserModel user) async {
     final ref = _db.collection('users').doc(user.uid);
     final doc = await ref.get();
 
     if (!doc.exists) {
-      // New user — save everything
       await ref.set({
         ...user.toMap(),
         'createdAt':   FieldValue.serverTimestamp(),
         'lastLoginAt': FieldValue.serverTimestamp(),
       });
     } else {
-      // Returning user — just update login time
       await ref.update({'lastLoginAt': FieldValue.serverTimestamp()});
     }
   }
 
-  // ── Convert Firebase error codes to readable messages ─────────
+  // ── Firebase error codes → readable messages ──────────────────
   String _errorMessage(String code) {
     switch (code) {
       case 'email-already-in-use':

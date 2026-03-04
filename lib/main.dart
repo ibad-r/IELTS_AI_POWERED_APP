@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'IELTS AI',
+      title: 'Scire',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       home: const _AuthGate(),

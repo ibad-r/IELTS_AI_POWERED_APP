@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-// ── Dark Auth Theme (ChatGPT-inspired) ────────────────────────────
+// ── Dark Auth Theme
 class AppDark {
   static const Color bg       = Color(0xFF0D0D0D);
   static const Color surface  = Color(0xFF1A1A1A);
@@ -30,6 +31,9 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         primary: Colors.white,
         surface: AppDark.surface,
+      ),
+      textTheme: GoogleFonts.manropeTextTheme(
+        ThemeData.dark().textTheme,
       ),
       useMaterial3: true,
     );
